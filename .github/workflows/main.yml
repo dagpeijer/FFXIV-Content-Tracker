@@ -1,0 +1,68 @@
+name: Build and Release ContentTracker
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore dependencies
+        run: dotnet restore ContentTracker.csproj
+
+      - name: Build Release
+        run: dotnet build ContentTracker.csproj -c Release --no-restore
+
+      - name: Prepare release folder
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release
+          Copy-Item "bin\Release\ContentTracker.dll" "release\ContentTracker.dll"
+          Copy-Item "ContentTracker.json" "release\ContentTracker.json"
+
+          if (Test-Path "bin\Release\ClosedXML.dll") {
+            Copy-Item "bin\Release\ClosedXML.dll" "release\ClosedXML.dll"
+          }
+
+          Get-ChildItem "bin\Release" -Filter "*.dll" | ForEach-Object {
+            if (-not (Test-Path ("release\" + $_.Name))) {
+              Copy-Item $_.FullName ("release\" + $_.Name)
+            }
+          }
+
+      - name: Create ZIP
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}"
+          if ($version -eq "main" -or $version -eq "") {
+            $version = "manual"
+          }
+
+          Compress-Archive -Path "release\*" -DestinationPath "ContentTracker-$version.zip" -Force
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ContentTracker-build
+          path: ContentTracker-*.zip
+
+      - name: Upload to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ContentTracker-*.zip
