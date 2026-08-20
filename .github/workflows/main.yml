@@ -22,6 +22,25 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
+      - name: Download Dalamud dev files
+        shell: pwsh
+        run: |
+          $dalamudUrl = "https://goatcorp.github.io/dalamud-distrib/latest.zip"
+          $dalamudDir = "$env:APPDATA\XIVLauncher\addon\Hooks\dev"
+
+          New-Item -ItemType Directory -Force -Path $dalamudDir | Out-Null
+
+          Write-Host "Downloading Dalamud..."
+          Invoke-WebRequest -Uri $dalamudUrl -OutFile "dalamud.zip"
+
+          Write-Host "Extracting Dalamud to $dalamudDir"
+          Expand-Archive -Path "dalamud.zip" -DestinationPath $dalamudDir -Force
+
+          Remove-Item "dalamud.zip"
+
+          Write-Host "Dalamud files:"
+          Get-ChildItem $dalamudDir | Select-Object Name
+
       - name: Restore dependencies
         run: dotnet restore ContentTracker.csproj
 
@@ -32,28 +51,26 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path release
-          Copy-Item "bin\Release\ContentTracker.dll" "release\ContentTracker.dll"
-          Copy-Item "ContentTracker.json" "release\ContentTracker.json"
 
-          if (Test-Path "bin\Release\ClosedXML.dll") {
-            Copy-Item "bin\Release\ClosedXML.dll" "release\ClosedXML.dll"
-          }
-
-          Get-ChildItem "bin\Release" -Filter "*.dll" | ForEach-Object {
-            if (-not (Test-Path ("release\" + $_.Name))) {
-              Copy-Item $_.FullName ("release\" + $_.Name)
-            }
+          Get-ChildItem "bin\Release" -File | Where-Object {
+            $_.Extension -in ".dll", ".json"
+          } | ForEach-Object {
+            Copy-Item $_.FullName "release\$($_.Name)"
           }
 
       - name: Create ZIP
         shell: pwsh
         run: |
           $version = "${{ github.ref_name }}"
-          if ($version -eq "main" -or $version -eq "") {
+
+          if ([string]::IsNullOrWhiteSpace($version) -or $version -eq "main") {
             $version = "manual"
           }
 
-          Compress-Archive -Path "release\*" -DestinationPath "ContentTracker-$version.zip" -Force
+          Compress-Archive `
+            -Path "release\*" `
+            -DestinationPath "ContentTracker-$version.zip" `
+            -Force
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
