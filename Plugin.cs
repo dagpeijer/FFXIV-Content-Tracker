@@ -1,66 +1,107 @@
-name: Build and Release
+using Dalamud.Interface.Windowing;
+using Dalamud.Plugin;
+using Dalamud.Plugin.Services;
+using System;
+using System.IO;
 
-on:
-  push:
-    tags:
-      - 'v*'
-  workflow_dispatch:
+namespace ContentTracker;
 
-permissions:
-  contents: write
+public sealed class Plugin : IDalamudPlugin
+{
+    private readonly IDalamudPluginInterface pluginInterface;
+    private readonly IClientState clientState;
+    private readonly IPluginLog log;
+    private readonly Configuration config;
+    private readonly TrackerStore store;
+    private readonly ExcelExporter exporter;
+    private readonly DutyTracker tracker;
+    private readonly WindowSystem windowSystem = new("ContentTracker");
+    private readonly MainWindow mainWindow;
 
-jobs:
-  build:
-    runs-on: windows-latest
+    public Plugin(
+        IDalamudPluginInterface pluginInterface,
+        IClientState clientState,
+        IPlayerState playerState,
+        IDutyState dutyState,
+        IDataManager dataManager,
+        IGameInventory gameInventory,
+        IPartyList partyList,
+        IFramework framework,
+        IPluginLog log)
+    {
+        this.pluginInterface = pluginInterface;
+        this.clientState = clientState;
+        this.log = log;
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+        config = pluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
+        config.Initialize(pluginInterface);
+        config.Save();
 
-      - name: Setup .NET 10
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '10.0.x'
+        store = new TrackerStore(pluginInterface.ConfigDirectory.FullName, log);
+        exporter = new ExcelExporter(log);
+        tracker = new DutyTracker(dutyState, clientState, playerState, dataManager, gameInventory, partyList, framework, log, store, OnRunFinished);
+        mainWindow = new MainWindow(config, store, tracker, ExportNow);
+        windowSystem.AddWindow(mainWindow);
 
-      - name: Restore
-        run: dotnet restore
+        pluginInterface.UiBuilder.Draw += DrawUi;
+        pluginInterface.UiBuilder.OpenMainUi += OpenMainUi;
+        pluginInterface.UiBuilder.OpenConfigUi += OpenMainUi;
+        clientState.Logout += OnLogout;
+    }
 
-      - name: Build Release
-        run: dotnet build -c Release --no-restore
+    public void Dispose()
+    {
+        clientState.Logout -= OnLogout;
+        pluginInterface.UiBuilder.Draw -= DrawUi;
+        pluginInterface.UiBuilder.OpenMainUi -= OpenMainUi;
+        pluginInterface.UiBuilder.OpenConfigUi -= OpenMainUi;
 
-      - name: Prepare package
-        shell: pwsh
-        run: |
-          $version = '${{ github.ref_name }}'
-          if ([string]::IsNullOrWhiteSpace($version) -or $version -eq 'main') {
-            $version = 'manual-${{ github.run_number }}'
-          }
+        tracker.Dispose();
+        store.Save();
 
-          $packageDir = Join-Path $PWD 'release-package'
-          New-Item -ItemType Directory -Force -Path $packageDir | Out-Null
+        if (config.ExportOnPluginDispose)
+            SafeExport("Plugin-Ende");
 
-          Copy-Item 'bin/Release/*' $packageDir -Recurse -Force
-          Copy-Item 'ContentTracker.json' $packageDir -Force
-          Copy-Item 'LICENSE' $packageDir -Force
+        windowSystem.RemoveAllWindows();
+    }
 
-          Get-ChildItem $packageDir -Recurse -Directory -Filter 'ref' | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
-          Get-ChildItem $packageDir -Recurse -Include '*.pdb','*.xml' | Remove-Item -Force -ErrorAction SilentlyContinue
+    private void DrawUi() => windowSystem.Draw();
+    private void OpenMainUi() => mainWindow.IsOpen = true;
 
-          $zipName = "ContentTracker-$version.zip"
-          Compress-Archive -Path "$packageDir/*" -DestinationPath $zipName -Force
-          "ZIP_NAME=$zipName" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+    private void OnLogout(int type, int code)
+    {
+        tracker.HandleLogout();
+        store.Save();
+        if (config.ExportOnLogout)
+            SafeExport("Logout");
+    }
 
-      - name: Upload build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ContentTracker-${{ github.ref_name }}
-          path: ${{ env.ZIP_NAME }}
+    private void OnRunFinished()
+    {
+        if (config.ExportAfterDuty)
+            SafeExport("Run-Ende");
+    }
 
-      - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: ${{ env.ZIP_NAME }}
-          generate_release_notes: true
-          draft: false
-          prerelease: false
+    private string ExportNow()
+    {
+        store.Save();
+        return exporter.Export(store.Data, config.ExportDirectory);
+    }
+
+    private void SafeExport(string source)
+    {
+        try
+        {
+            var path = ExportNow();
+            var fallback = !string.Equals(Path.GetFileName(path), "FFXIV_Content_Tracker.xlsx", StringComparison.OrdinalIgnoreCase);
+            mainWindow.SetStatus(fallback
+                ? $"Automatischer Export ({source}): Hauptdatei gesperrt, Ausweichdatei erstellt: {path}"
+                : $"Automatischer Export ({source}) erfolgreich: {path}");
+        }
+        catch (Exception ex)
+        {
+            mainWindow.SetStatus($"Automatischer Export ({source}) fehlgeschlagen: {ex.Message}");
+            log.Error(ex, "ContentTracker: Excel-Export bei {Source} fehlgeschlagen.", source);
+        }
+    }
+}

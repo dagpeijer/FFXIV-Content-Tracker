@@ -1,34 +1,10 @@
-# Creating a release
-
-GitHub Actions can build and publish the ready-to-use plugin package automatically.
-
-## First public release: v0.4.0
-
-After uploading this repository to GitHub:
-
-1. Open the repository on GitHub.
-2. Open **Actions** and make sure GitHub Actions are enabled.
-3. Build/test the current `main` branch if desired by opening **Actions → Build and Release → Run workflow**.
-4. Create a tag named `v0.4.0` and push it, or create a GitHub Release using that tag.
-5. The **Build and Release** workflow starts automatically.
-6. When it finishes, the GitHub Release will contain a file similar to:
-
-   `ContentTracker-v0.4.0.zip`
-
-This ZIP contains the compiled plugin and its required runtime dependencies. Users do not need the source repository to use that release package.
-
-## Command line alternative
-
-```powershell
-git tag v0.4.0
-git push origin v0.4.0
-```
-
-## Future versions
-
-Before creating a new tag, update the version in `ContentTracker.csproj` and `CHANGELOG.md`, commit the changes, and then tag the matching version, for example:
-
-```powershell
-git tag v0.5.0
-git push origin v0.5.0
-```
+{
+  "Author": "Private",
+  "Name": "Content Tracker",
+  "Punchline": "Trackt FFXIV-Inhalte, Zeit, Gil, Charaktere und Mitspieler.",
+  "Description": "Privater Content-Tracker mit Excel-Export, Charaktertrennung, Gil-Differenz und Spielerstatistik.",
+  "InternalName": "ContentTracker",
+  "ApplicableVersion": "any",
+  "DalamudApiLevel": 15,
+  "Tags": [ "tracker", "statistics", "excel" ]
+}
