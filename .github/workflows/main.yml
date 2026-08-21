@@ -16,6 +16,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -29,28 +31,42 @@ jobs:
           $dalamudDir = "$env:APPDATA\XIVLauncher\addon\Hooks\dev"
 
           New-Item -ItemType Directory -Force -Path $dalamudDir | Out-Null
+          Invoke-WebRequest -Uri $dalamudUrl -OutFile "$env:RUNNER_TEMP\dalamud.zip"
+          Expand-Archive -Path "$env:RUNNER_TEMP\dalamud.zip" -DestinationPath $dalamudDir -Force
 
-          Write-Host "Downloading Dalamud..."
-          Invoke-WebRequest -Uri $dalamudUrl -OutFile "dalamud.zip"
+      - name: Determine version
+        id: version
+        shell: pwsh
+        run: |
+          if ("${{ github.ref_type }}" -eq "tag") {
+            $tag = "${{ github.ref_name }}"
+            $version = $tag.TrimStart("v")
+          }
+          else {
+            $tag = "manual"
+            $version = "0.0.0"
+          }
 
-          Write-Host "Extracting Dalamud to $dalamudDir"
-          Expand-Archive -Path "dalamud.zip" -DestinationPath $dalamudDir -Force
-
-          Remove-Item "dalamud.zip"
-
-          Write-Host "Dalamud files:"
-          Get-ChildItem $dalamudDir | Select-Object Name
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          "version=$version" >> $env:GITHUB_OUTPUT
 
       - name: Restore dependencies
         run: dotnet restore ContentTracker.csproj
 
       - name: Build Release
-        run: dotnet build ContentTracker.csproj -c Release --no-restore
+        shell: pwsh
+        run: |
+          if ("${{ github.ref_type }}" -eq "tag") {
+            dotnet build ContentTracker.csproj -c Release --no-restore -p:Version=${{ steps.version.outputs.version }}
+          }
+          else {
+            dotnet build ContentTracker.csproj -c Release --no-restore
+          }
 
       - name: Prepare release folder
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path release
+          New-Item -ItemType Directory -Force -Path release | Out-Null
 
           Get-ChildItem "bin\Release" -File | Where-Object {
             $_.Extension -in ".dll", ".json"
@@ -58,19 +74,19 @@ jobs:
             Copy-Item $_.FullName "release\$($_.Name)"
           }
 
+          if (-not (Test-Path "release\ContentTracker.dll")) {
+            throw "ContentTracker.dll was not found in the Release output."
+          }
+
+          if (-not (Test-Path "release\ContentTracker.json")) {
+            throw "ContentTracker.json was not found in the Release output."
+          }
+
       - name: Create ZIP
         shell: pwsh
         run: |
-          $version = "${{ github.ref_name }}"
-
-          if ([string]::IsNullOrWhiteSpace($version) -or $version -eq "main") {
-            $version = "manual"
-          }
-
-          Compress-Archive `
-            -Path "release\*" `
-            -DestinationPath "ContentTracker-$version.zip" `
-            -Force
+          $tag = "${{ steps.version.outputs.tag }}"
+          Compress-Archive -Path "release\*" -DestinationPath "ContentTracker-$tag.zip" -Force
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
@@ -78,8 +94,64 @@ jobs:
           name: ContentTracker-build
           path: ContentTracker-*.zip
 
-      - name: Upload to GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Publish GitHub Release
+        if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v2
         with:
-          files: ContentTracker-*.zip
+          name: ContentTracker ${{ github.ref_name }}
+          generate_release_notes: true
+          files: ContentTracker-${{ github.ref_name }}.zip
+
+      - name: Generate pluginmaster.json
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $version = "${{ steps.version.outputs.version }}"
+          $assemblyVersion = "$version.0"
+          $download = "https://github.com/dagpeijer/FFXIV-Content-Tracker/releases/download/$tag/ContentTracker-$tag.zip"
+
+          $plugin = @(
+            [ordered]@{
+              Author = "peijer"
+              Name = "Content Tracker"
+              Punchline = "Track FFXIV duties, time, Gil, characters and party members."
+              Description = "Tracks FFXIV duties, time spent, clears, wipes, Gil changes, multiple characters and encountered party/alliance members. Includes persistent local storage and Excel export."
+              InternalName = "ContentTracker"
+              AssemblyVersion = $assemblyVersion
+              RepoUrl = "https://github.com/dagpeijer/FFXIV-Content-Tracker"
+              ApplicableVersion = "any"
+              DalamudApiLevel = 15
+              Tags = @("tracker", "statistics", "excel")
+              IsHide = $false
+              IsTestingExclusive = $false
+              DownloadLinkInstall = $download
+              DownloadLinkUpdate = $download
+            }
+          )
+
+          $json = $plugin | ConvertTo-Json -Depth 10
+          Set-Content -Path "$env:RUNNER_TEMP\pluginmaster.json" -Value $json -Encoding UTF8
+
+      - name: Update third-party repository manifest
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git fetch origin main
+          git checkout main
+          git pull --ff-only origin main
+
+          Copy-Item "$env:RUNNER_TEMP\pluginmaster.json" "pluginmaster.json" -Force
+
+          git add pluginmaster.json
+
+          if (git diff --cached --quiet) {
+            Write-Host "pluginmaster.json is already current."
+            exit 0
+          }
+
+          git commit -m "Update plugin repository for ${{ github.ref_name }}"
+          git push origin main
