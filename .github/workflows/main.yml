@@ -130,9 +130,9 @@ jobs:
             }
           )
 
-         $json = $plugin[0] | ConvertTo-Json -Depth 10
-         $json = "[`n$json`n]"
-         Set-Content -Path "$env:RUNNER_TEMP\pluginmaster.json" -Value $json -Encoding UTF8
+          $json = $plugin[0] | ConvertTo-Json -Depth 10
+          $json = "[`n$json`n]"
+          Set-Content -Path "$env:RUNNER_TEMP\pluginmaster.json" -Value $json -Encoding UTF8
 
       - name: Update third-party repository manifest
         if: github.ref_type == 'tag'
