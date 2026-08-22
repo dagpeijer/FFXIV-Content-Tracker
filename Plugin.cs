@@ -52,7 +52,8 @@ public sealed class Plugin : IDalamudPlugin
             playerState,
             gameInventory,
             framework,
-            log);
+            log,
+            store);
 
         tracker = new DutyTracker(
             dutyState,
@@ -96,7 +97,11 @@ public sealed class Plugin : IDalamudPlugin
         commandManager.RemoveHandler(CommandName);
 
         tracker.Dispose();
+
+        // Schließt eine noch aktive Gil-Session ab und speichert sie,
+        // bevor ein möglicher Excel-Export ausgeführt wird.
         sessionGilTracker.Dispose();
+
         store.Save();
 
         if (config.ExportOnPluginDispose)
@@ -116,6 +121,8 @@ public sealed class Plugin : IDalamudPlugin
 
     private void OnLogout(int type, int code)
     {
+        // SessionGilTracker wurde früher registriert und speichert die
+        // Gil-Session deshalb vor diesem Export.
         tracker.HandleLogout();
         store.Save();
 

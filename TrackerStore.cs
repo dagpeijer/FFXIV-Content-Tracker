@@ -32,7 +32,9 @@ public sealed class TrackerStore
     {
         lock (sync)
         {
-            var existing = Data.Characters.FirstOrDefault(x => x.ContentId != 0 && x.ContentId == character.ContentId);
+            var existing = Data.Characters.FirstOrDefault(
+                x => x.ContentId != 0 && x.ContentId == character.ContentId);
+
             if (existing == null)
             {
                 Data.Characters.Add(character);
@@ -42,7 +44,9 @@ public sealed class TrackerStore
                 existing.Name = character.Name;
                 existing.HomeWorldId = character.HomeWorldId;
                 existing.HomeWorldName = character.HomeWorldName;
-                existing.FirstSeenUtc = existing.FirstSeenUtc == default ? character.FirstSeenUtc : existing.FirstSeenUtc;
+                existing.FirstSeenUtc = existing.FirstSeenUtc == default
+                    ? character.FirstSeenUtc
+                    : existing.FirstSeenUtc;
                 existing.LastSeenUtc = character.LastSeenUtc;
             }
 
@@ -56,12 +60,27 @@ public sealed class TrackerStore
             return Data.Runs.Count == 0 ? 1 : Data.Runs.Max(x => x.Id) + 1;
     }
 
+    public long GetNextGilSessionId()
+    {
+        lock (sync)
+            return Data.GilSessions.Count == 0 ? 1 : Data.GilSessions.Max(x => x.Id) + 1;
+    }
+
     public void AddRun(DutyRunRecord run)
     {
         lock (sync)
         {
             Data.Runs.Add(run);
             Data.PendingRun = null;
+            SaveLocked();
+        }
+    }
+
+    public void AddGilSession(GilSessionRecord session)
+    {
+        lock (sync)
+        {
+            Data.GilSessions.Add(session);
             SaveLocked();
         }
     }
@@ -101,16 +120,22 @@ public sealed class TrackerStore
                 return new TrackerData();
 
             var json = File.ReadAllText(dataFile);
-            var data = JsonSerializer.Deserialize<TrackerData>(json, jsonOptions) ?? new TrackerData();
+            var data = JsonSerializer.Deserialize<TrackerData>(json, jsonOptions)
+                       ?? new TrackerData();
 
-            data.SchemaVersion = 3;
+            data.SchemaVersion = 4;
             data.Characters ??= new();
             data.Runs ??= new();
+            data.GilSessions ??= new();
+
             foreach (var run in data.Runs)
             {
                 run.Players ??= new();
                 run.EndReason ??= string.Empty;
             }
+
+            foreach (var session in data.GilSessions)
+                session.EndReason ??= string.Empty;
 
             if (data.PendingRun != null)
                 data.PendingRun.Players ??= new();

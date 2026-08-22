@@ -5,9 +5,10 @@ namespace ContentTracker;
 
 public sealed class TrackerData
 {
-    public int SchemaVersion { get; set; } = 3;
+    public int SchemaVersion { get; set; } = 4;
     public List<CharacterRecord> Characters { get; set; } = new();
     public List<DutyRunRecord> Runs { get; set; } = new();
+    public List<GilSessionRecord> GilSessions { get; set; } = new();
     public ActiveRunSnapshot? PendingRun { get; set; }
 }
 
@@ -20,7 +21,9 @@ public sealed class CharacterRecord
     public DateTime FirstSeenUtc { get; set; }
     public DateTime LastSeenUtc { get; set; }
 
-    public string DisplayName => string.IsNullOrWhiteSpace(HomeWorldName) ? Name : $"{Name} @ {HomeWorldName}";
+    public string DisplayName => string.IsNullOrWhiteSpace(HomeWorldName)
+        ? Name
+        : $"{Name} @ {HomeWorldName}";
 }
 
 public sealed class EncounteredPlayerRecord
@@ -32,7 +35,9 @@ public sealed class EncounteredPlayerRecord
     public DateTime FirstSeenUtc { get; set; }
     public DateTime LastSeenUtc { get; set; }
 
-    public string DisplayName => string.IsNullOrWhiteSpace(WorldName) ? Name : $"{Name} @ {WorldName}";
+    public string DisplayName => string.IsNullOrWhiteSpace(WorldName)
+        ? Name
+        : $"{Name} @ {WorldName}";
 }
 
 public sealed class DutyRunRecord
@@ -62,6 +67,29 @@ public sealed class DutyRunRecord
     public string EndReason { get; set; } = string.Empty;
     public bool RecoveredSession { get; set; }
     public List<EncounteredPlayerRecord> Players { get; set; } = new();
+
+    public string CharacterDisplayName => string.IsNullOrWhiteSpace(CharacterHomeWorldName)
+        ? CharacterName
+        : $"{CharacterName} @ {CharacterHomeWorldName}";
+}
+
+public sealed class GilSessionRecord
+{
+    public long Id { get; set; }
+    public ulong CharacterContentId { get; set; }
+    public string CharacterName { get; set; } = string.Empty;
+    public uint CharacterHomeWorldId { get; set; }
+    public string CharacterHomeWorldName { get; set; } = string.Empty;
+
+    public DateTime StartedUtc { get; set; }
+    public DateTime EndedUtc { get; set; }
+    public long DurationSeconds { get; set; }
+
+    public int? GilStart { get; set; }
+    public int? GilEnd { get; set; }
+    public int? GilDelta { get; set; }
+
+    public string EndReason { get; set; } = string.Empty;
 
     public string CharacterDisplayName => string.IsNullOrWhiteSpace(CharacterHomeWorldName)
         ? CharacterName
