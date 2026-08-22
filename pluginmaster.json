@@ -1,22 +1,22 @@
 [
-  {
-    "Author": "peijer",
-    "Name": "Content Tracker",
-    "Punchline": "Track FFXIV duties, time, Gil, characters and party members.",
-    "Description": "Tracks FFXIV duties, time spent, clears, wipes, Gil changes, multiple characters and encountered party/alliance members. Includes persistent local storage and Excel export.",
-    "InternalName": "ContentTracker",
-    "AssemblyVersion": "0.4.1.0",
-    "RepoUrl": "https://github.com/dagpeijer/FFXIV-Content-Tracker",
-    "ApplicableVersion": "any",
-    "DalamudApiLevel": 15,
-    "Tags": [
-      "tracker",
-      "statistics",
-      "excel"
-    ],
-    "IsHide": false,
-    "IsTestingExclusive": false,
-    "DownloadLinkInstall": "https://github.com/dagpeijer/FFXIV-Content-Tracker/releases/download/v0.4.1/ContentTracker-v0.4.1.zip",
-    "DownloadLinkUpdate": "https://github.com/dagpeijer/FFXIV-Content-Tracker/releases/download/v0.4.1/ContentTracker-v0.4.1.zip"
-  }
+{
+  "Author": "peijer",
+  "Name": "Content Tracker",
+  "Punchline": "Track FFXIV duties, time, Gil, characters and party members.",
+  "Description": "Tracks FFXIV duties, time spent, clears, wipes, Gil changes, multiple characters and encountered party/alliance members. Includes persistent local storage and Excel export.",
+  "InternalName": "ContentTracker",
+  "AssemblyVersion": "0.4.2.0",
+  "RepoUrl": "https://github.com/dagpeijer/FFXIV-Content-Tracker",
+  "ApplicableVersion": "any",
+  "DalamudApiLevel": 15,
+  "Tags": [
+    "tracker",
+    "statistics",
+    "excel"
+  ],
+  "IsHide": false,
+  "IsTestingExclusive": false,
+  "DownloadLinkInstall": "https://github.com/dagpeijer/FFXIV-Content-Tracker/releases/download/v0.4.2/ContentTracker-v0.4.2.zip",
+  "DownloadLinkUpdate": "https://github.com/dagpeijer/FFXIV-Content-Tracker/releases/download/v0.4.2/ContentTracker-v0.4.2.zip"
+}
 ]
