@@ -1,7 +1,15 @@
 <Project Sdk="Dalamud.NET.Sdk/15.0.0">
   <PropertyGroup>
+    <!-- PATCH-KOMPATIBILITÄT:
+         Bei einem Dalamud API Update nur die SDK-Version oben
+         und DalamudApiLevel hier direkt darunter anpassen. -->
+    <DalamudApiLevel>15</DalamudApiLevel>
+
+    <!-- Nur erhöhen, wenn sich das Format von tracker-data.json ändert. -->
+    <DataSchemaVersion>4</DataSchemaVersion>
+
     <TargetFramework>net10.0-windows</TargetFramework>
-    <Version>0.4.2</Version>
+    <Version>0.4.3</Version>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -10,5 +18,10 @@
 
   <ItemGroup>
     <PackageReference Include="ClosedXML" Version="0.105.1" />
+
+    <!-- Diese Metadaten werden im Pluginfenster angezeigt. -->
+    <AssemblyMetadata Include="DalamudApiLevel" Value="$(DalamudApiLevel)" />
+    <AssemblyMetadata Include="DataSchemaVersion" Value="$(DataSchemaVersion)" />
+    <AssemblyMetadata Include="TargetFramework" Value="$(TargetFramework)" />
   </ItemGroup>
 </Project>

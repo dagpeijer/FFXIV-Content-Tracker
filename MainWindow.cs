@@ -507,6 +507,14 @@ public sealed class MainWindow : Window
 
         ImGui.TextWrapped(
             "Pluginfenster öffnen: /ctt");
+
+        ImGui.Separator();
+        ImGui.TextUnformatted("Kompatibilität");
+        ImGui.TextWrapped(
+            $"Content Tracker v{BuildInfo.PluginVersion}   |   " +
+            $"Dalamud API {BuildInfo.DalamudApiLevel}   |   " +
+            $"Datenbank {BuildInfo.DataSchemaVersion}   |   " +
+            $"{BuildInfo.TargetFramework}");
     }
 
     private IEnumerable<DutyRunRecord> GetFilteredRuns()

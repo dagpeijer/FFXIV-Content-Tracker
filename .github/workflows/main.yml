@@ -50,6 +50,25 @@ jobs:
           "tag=$tag" >> $env:GITHUB_OUTPUT
           "version=$version" >> $env:GITHUB_OUTPUT
 
+      - name: Read compatibility metadata
+        id: compatibility
+        shell: pwsh
+        run: |
+          [xml]$project = Get-Content "ContentTracker.csproj"
+          $api = $project.Project.PropertyGroup.DalamudApiLevel | Select-Object -First 1
+          $schema = $project.Project.PropertyGroup.DataSchemaVersion | Select-Object -First 1
+
+          if ([string]::IsNullOrWhiteSpace($api)) {
+            throw "DalamudApiLevel is missing from ContentTracker.csproj."
+          }
+
+          if ([string]::IsNullOrWhiteSpace($schema)) {
+            throw "DataSchemaVersion is missing from ContentTracker.csproj."
+          }
+
+          "api=$api" >> $env:GITHUB_OUTPUT
+          "schema=$schema" >> $env:GITHUB_OUTPUT
+
       - name: Restore dependencies
         run: dotnet restore ContentTracker.csproj
 
@@ -121,7 +140,7 @@ jobs:
               AssemblyVersion = $assemblyVersion
               RepoUrl = "https://github.com/dagpeijer/FFXIV-Content-Tracker"
               ApplicableVersion = "any"
-              DalamudApiLevel = 15
+              DalamudApiLevel = [int]"${{ steps.compatibility.outputs.api }}"
               Tags = @("tracker", "statistics", "excel")
               IsHide = $false
               IsTestingExclusive = $false

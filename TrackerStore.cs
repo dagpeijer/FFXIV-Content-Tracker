@@ -123,7 +123,7 @@ public sealed class TrackerStore
             var data = JsonSerializer.Deserialize<TrackerData>(json, jsonOptions)
                        ?? new TrackerData();
 
-            data.SchemaVersion = 4;
+            data.SchemaVersion = BuildInfo.DataSchemaVersion;
             data.Characters ??= new();
             data.Runs ??= new();
             data.GilSessions ??= new();

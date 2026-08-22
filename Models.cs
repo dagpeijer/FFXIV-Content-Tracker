@@ -5,7 +5,7 @@ namespace ContentTracker;
 
 public sealed class TrackerData
 {
-    public int SchemaVersion { get; set; } = 4;
+    public int SchemaVersion { get; set; } = BuildInfo.DataSchemaVersion;
     public List<CharacterRecord> Characters { get; set; } = new();
     public List<DutyRunRecord> Runs { get; set; } = new();
     public List<GilSessionRecord> GilSessions { get; set; } = new();

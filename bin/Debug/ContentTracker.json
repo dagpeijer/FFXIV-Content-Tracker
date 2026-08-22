@@ -1,0 +1,20 @@
+{
+  "Author": "Private",
+  "Name": "Content Tracker",
+  "InternalName": "ContentTracker",
+  "AssemblyVersion": "0.4.3.0",
+  "Description": "Privater Content-Tracker mit Excel-Export, Charaktertrennung, Gil-Differenz und Spielerstatistik.",
+  "ApplicableVersion": "any",
+  "Tags": [
+    "tracker",
+    "statistics",
+    "excel"
+  ],
+  "DalamudApiLevel": 15,
+  "LoadRequiredState": 0,
+  "LoadSync": false,
+  "CanUnloadAsync": false,
+  "LoadPriority": 0,
+  "Punchline": "Trackt FFXIV-Inhalte, Zeit, Gil, Charaktere und Mitspieler.",
+  "AcceptsFeedback": true
+}
