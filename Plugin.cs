@@ -1,3 +1,4 @@
+using Dalamud.Game.Command;
 using Dalamud.Interface.Windowing;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
@@ -8,13 +9,17 @@ namespace ContentTracker;
 
 public sealed class Plugin : IDalamudPlugin
 {
+    private const string CommandName = "/ctt";
+
     private readonly IDalamudPluginInterface pluginInterface;
     private readonly IClientState clientState;
+    private readonly ICommandManager commandManager;
     private readonly IPluginLog log;
     private readonly Configuration config;
     private readonly TrackerStore store;
     private readonly ExcelExporter exporter;
     private readonly DutyTracker tracker;
+    private readonly SessionGilTracker sessionGilTracker;
     private readonly WindowSystem windowSystem = new("ContentTracker");
     private readonly MainWindow mainWindow;
 
@@ -27,10 +32,12 @@ public sealed class Plugin : IDalamudPlugin
         IGameInventory gameInventory,
         IPartyList partyList,
         IFramework framework,
+        ICommandManager commandManager,
         IPluginLog log)
     {
         this.pluginInterface = pluginInterface;
         this.clientState = clientState;
+        this.commandManager = commandManager;
         this.log = log;
 
         config = pluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
@@ -39,9 +46,39 @@ public sealed class Plugin : IDalamudPlugin
 
         store = new TrackerStore(pluginInterface.ConfigDirectory.FullName, log);
         exporter = new ExcelExporter(log);
-        tracker = new DutyTracker(dutyState, clientState, playerState, dataManager, gameInventory, partyList, framework, log, store, OnRunFinished);
-        mainWindow = new MainWindow(config, store, tracker, ExportNow);
+
+        sessionGilTracker = new SessionGilTracker(
+            clientState,
+            playerState,
+            gameInventory,
+            framework,
+            log);
+
+        tracker = new DutyTracker(
+            dutyState,
+            clientState,
+            playerState,
+            dataManager,
+            gameInventory,
+            partyList,
+            framework,
+            log,
+            store,
+            OnRunFinished);
+
+        mainWindow = new MainWindow(
+            config,
+            store,
+            tracker,
+            sessionGilTracker,
+            ExportNow);
+
         windowSystem.AddWindow(mainWindow);
+
+        commandManager.AddHandler(CommandName, new CommandInfo(OnCommand)
+        {
+            HelpMessage = "Öffnet den FFXIV Content Tracker."
+        });
 
         pluginInterface.UiBuilder.Draw += DrawUi;
         pluginInterface.UiBuilder.OpenMainUi += OpenMainUi;
@@ -56,7 +93,10 @@ public sealed class Plugin : IDalamudPlugin
         pluginInterface.UiBuilder.OpenMainUi -= OpenMainUi;
         pluginInterface.UiBuilder.OpenConfigUi -= OpenMainUi;
 
+        commandManager.RemoveHandler(CommandName);
+
         tracker.Dispose();
+        sessionGilTracker.Dispose();
         store.Save();
 
         if (config.ExportOnPluginDispose)
@@ -66,12 +106,19 @@ public sealed class Plugin : IDalamudPlugin
     }
 
     private void DrawUi() => windowSystem.Draw();
+
     private void OpenMainUi() => mainWindow.IsOpen = true;
+
+    private void OnCommand(string command, string arguments)
+    {
+        mainWindow.IsOpen = true;
+    }
 
     private void OnLogout(int type, int code)
     {
         tracker.HandleLogout();
         store.Save();
+
         if (config.ExportOnLogout)
             SafeExport("Logout");
     }
@@ -93,7 +140,11 @@ public sealed class Plugin : IDalamudPlugin
         try
         {
             var path = ExportNow();
-            var fallback = !string.Equals(Path.GetFileName(path), "FFXIV_Content_Tracker.xlsx", StringComparison.OrdinalIgnoreCase);
+            var fallback = !string.Equals(
+                Path.GetFileName(path),
+                "FFXIV_Content_Tracker.xlsx",
+                StringComparison.OrdinalIgnoreCase);
+
             mainWindow.SetStatus(fallback
                 ? $"Automatischer Export ({source}): Hauptdatei gesperrt, Ausweichdatei erstellt: {path}"
                 : $"Automatischer Export ({source}) erfolgreich: {path}");
